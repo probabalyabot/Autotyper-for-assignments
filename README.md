@@ -4,7 +4,7 @@
 
 ---
 
-## 📋 Table of Contents
+##  Table of Contents
 
 - [About](#about)
 - [Features](#features)
@@ -26,15 +26,15 @@
 
 ## Features
 
-- ✅ Types code **line by line**, pressing `Enter` after each line
-- ✅ Preserves **exact indentation** from the source file
-- ✅ Automatically converts **tabs → 4 spaces** to prevent indentation issues
-- ✅ Handles **special characters** correctly (`{`, `}`, `<`, `>`, `#`, `[]`, etc.)
-- ✅ Configurable **startup delay** to let you click the target text box
-- ✅ Configurable **typing speed** (characters per second)
-- ✅ Built-in **fail-safe**: move the mouse to any screen corner to abort instantly
-- ✅ Works on **Windows 10 / 11**
-- ✅ Supports any plain-text source file (`.py`, `.c`, `.cpp`, `.js`, `.java`, etc.)
+-  Types code **line by line**, pressing `Enter` after each line
+-  Preserves **exact indentation** from the source file
+-  Automatically converts **tabs → 4 spaces** to prevent indentation issues
+-  Handles **special characters** correctly (`{`, `}`, `<`, `>`, `#`, `[]`, etc.) via clipboard injection
+-  Configurable **startup delay** to let you click the target text box
+-  Configurable **typing speed** (characters per second)
+-  Built-in **fail-safe**: move the mouse to any screen corner to abort instantly
+-  Works on **Windows 10 / 11**
+-  Supports any plain-text source file (`.py`, `.c`, `.cpp`, `.js`, `.java`, etc.)
 
 ---
 
@@ -42,6 +42,7 @@
 
 - Python **3.10+**
 - [`pyautogui`](https://pyautogui.readthedocs.io/en/latest/)
+- [`pyperclip`](https://pypi.org/project/pyperclip/)
 
 ---
 
@@ -54,10 +55,10 @@ git clone https://github.com/probabalyabot/Autotyper-for-assignments.git
 cd auto-typer
 ```
 
-**2. Install the dependency:**
+**2. Install dependencies:**
 
 ```bash
-pip install pyautogui
+pip install pyautogui pyperclip
 ```
 
 ---
@@ -92,8 +93,8 @@ All settings are at the **top of `auto_typer.py`** for easy access:
 |---|---|---|
 | `CODE_FILE` | `"code.py"` | Path to the source file to type |
 | `STARTUP_DELAY` | `5` | Seconds to wait before typing starts |
-| `CHAR_INTERVAL` | `0.03` | Delay between each character (in seconds) |
-| `LINE_DELAY` | `0.05` | Pause after pressing `Enter` each line |
+| `CHAR_INTERVAL` | `0.03` | Delay between each character (only used for plain ASCII lines) |
+| `LINE_DELAY` | `0.08` | Pause after pressing `Enter` each line |
 
 ### Typing Speed Guide
 
@@ -121,33 +122,37 @@ User runs script
       │
       ▼
  For each line:
-  ├─ Type characters one by one
+  ├─ Plain ASCII? → type character by character
+  ├─ Contains special chars? → copy to clipboard → Ctrl+V
   └─ Press Enter
       │
       ▼
     Done ✅
 ```
 
-The script uses `pyautogui.write()` with a per-character `interval` to properly handle special characters across different keyboard layouts on Windows.
+Lines containing only plain ASCII characters (letters, digits, basic punctuation) are typed character by character using `pyautogui.write()`. Lines containing special characters like `{`, `}`, `<`, `>`, `#`, `&`, `|` are injected via the clipboard (`pyperclip` + `Ctrl+V`) to ensure they are typed accurately regardless of keyboard layout. The original clipboard contents are restored after each paste.
 
 ---
 
 ## Tips & Troubleshooting
 
-**🛑 To stop the script immediately:**
+** To stop the script immediately:**
 - Move your mouse to **any corner of the screen** (PyAutoGUI fail-safe), or
 - Press `Ctrl+C` in the terminal window
 
-**⚠️ Characters being mistyped or skipped?**
-- Increase `CHAR_INTERVAL` (e.g., `0.05` or higher)
+** Characters being mistyped or skipped?**
 - Ensure the file is saved as **UTF-8**
+- Increase `CHAR_INTERVAL` slightly (e.g., `0.05`) for plain ASCII lines
 
-**⚠️ Auto-indent is causing double indentation?**
+** Auto-indent is causing double indentation?**
 - Increase `LINE_DELAY` slightly (e.g., `0.1`) to give the editor time to settle after `Enter`
-- Make sure the target editor's auto-indent is turned off if possible
+- Turn off auto-indent in the target editor if possible
 
-**⚠️ Script types in the wrong window?**
+** Script types in the wrong window?**
 - Increase `STARTUP_DELAY` to give yourself more time to click the correct text field
+
+** Clipboard paste not working in the target text box?**
+- Some rich-text editors (e.g. TinyMCE in Moodle) may handle `Ctrl+V` differently — try switching the editor to plain-text mode first
 
 ---
 
@@ -157,4 +162,4 @@ This project is licensed under the [MIT License](LICENSE).
 
 ---
 
-<p align="center">Made with ❤️ using Python & PyAutoGUI</p>
+<p align="center">Made with annoyance at moodle using Python & PyAutoGUI</p>
