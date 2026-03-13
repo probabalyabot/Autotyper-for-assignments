@@ -5,72 +5,60 @@
 
 DEPENDENCIES:
   Install required libraries via pip:
-    pip install pyautogui
+    pip install pyautogui pyperclip
 
 HOW TO RUN:
   1. Save your code in a file (e.g., code.c, code.cpp, code.py, etc.)
   2. Open a terminal and run:
        python auto_typer.py
-  3. When prompted (or after the startup delay), click inside the
-     target text box / code editor where you want the code typed.
+  3. When prompted, click inside the target text box / editor.
   4. The script will begin typing automatically.
 
 NOTES:
   - Do NOT move your mouse or type anything while the script is running.
   - Press Ctrl+C in the terminal to abort at any time.
-  - Tabs are automatically converted to 4 spaces.
-  - The script types line-by-line and presses Enter after each line.
+  - Move mouse to any screen corner to emergency-stop (PyAutoGUI failsafe).
+  - Special characters like { } < > # @ are handled correctly via clipboard.
 
 =====================================================================
 """
 
 import pyautogui
+import pyperclip
 import time
 import sys
 import os
 
 # ─────────────────────────────────────────────────────────────────────
-# CONFIGURATION — Adjust these values to your needs
+# CONFIGURATION
 # ─────────────────────────────────────────────────────────────────────
 
-# Path to the source code file you want to type out
-CODE_FILE = "code.c"  # <-- Change this to your file path
-
-# Delay (in seconds) before typing begins.
-# Use this time to click into the target text box.
-STARTUP_DELAY = 5  # seconds
-
-# Delay between each individual character being typed (in seconds).
-# Lower = faster, Higher = more human-like.
-# Recommended range: 0.02 (fast) to 0.08 (normal human pace)
-CHAR_INTERVAL = 0.03  # seconds
-
-# Delay (in seconds) after pressing Enter at the end of each line.
-# Helps prevent race conditions with auto-indent in some editors.
-LINE_DELAY = 0.05  # seconds
+CODE_FILE     = "code.c"   # <-- Path to your source file
+STARTUP_DELAY = 5          # Seconds before typing begins (use to click into target)
+LINE_DELAY    = 0.08       # Seconds to pause after each Enter keypress
+CHAR_INTERVAL = 0.03       # Seconds between chars (only used for safe ASCII fallback)
 
 # ─────────────────────────────────────────────────────────────────────
-# SAFETY SETTING
-# PyAutoGUI will raise an exception if the mouse hits a screen corner.
-# This acts as a fail-safe to stop the script if needed.
-# To disable: set pyautogui.FAILSAFE = False (not recommended)
-# ─────────────────────────────────────────────────────────────────────
-pyautogui.FAILSAFE = True
+pyautogui.FAILSAFE = True  # Move mouse to top-left corner to emergency stop
+
+
+# Characters that pyautogui.write() handles safely on all keyboards.
+# Everything outside this set will be typed via clipboard to avoid corruption.
+SAFE_CHARS = set(
+    "abcdefghijklmnopqrstuvwxyz"
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "0123456789"
+    " .,;:'\"!?-_="
+)
 
 
 def read_file(filepath: str) -> list[str]:
-    """
-    Reads the source code file and returns a list of lines.
-    Tabs are converted to 4 spaces to prevent indentation issues.
-    The file is read with UTF-8 encoding for broad character support.
-    """
     if not os.path.isfile(filepath):
         print(f"[ERROR] File not found: '{filepath}'")
-        print("  Please check the CODE_FILE path at the top of the script.")
+        print("  Check the CODE_FILE path at the top of the script.")
         sys.exit(1)
 
     with open(filepath, "r", encoding="utf-8") as f:
-        # Replace all tab characters with 4 spaces to normalize indentation
         lines = [line.rstrip("\n").replace("\t", "    ") for line in f]
 
     print(f"[INFO] Loaded '{filepath}' — {len(lines)} lines to type.")
@@ -78,90 +66,77 @@ def read_file(filepath: str) -> list[str]:
 
 
 def countdown(seconds: int):
-    """
-    Displays a countdown in the terminal so the user knows
-    how much time is left before typing begins.
-    """
-    print(f"\n[INFO] Starting in {seconds} seconds — click inside your target text box now!\n")
+    print(f"\n[INFO] Starting in {seconds} seconds — click inside your target text box!\n")
     for i in range(seconds, 0, -1):
         print(f"  Starting in {i}...", end="\r", flush=True)
         time.sleep(1)
-    print("  Typing now!              ")  # Overwrite the countdown line
+    print("  Typing now!              ")
 
 
-def type_line(line: str, interval: float):
+def type_line(line: str):
     """
-    Types a single line of text character by character using PyAutoGUI.
+    Types a single line using the safest method per segment:
+      - Pure safe-ASCII runs → pyautogui.write() (character by character)
+      - Any line containing special chars → clipboard paste (Ctrl+V)
 
-    Why not use pyautogui.write()?
-      pyautogui.write() has known issues with special characters on
-      non-US keyboard layouts and can drop characters like {, }, <, >,
-      #, @, etc. Using pyautogui.typewrite() with 'interval' works for
-      simple ASCII, but for full Unicode and special character support,
-      we use pyautogui.write() carefully combined with hotkey for symbols.
-
-    The safest approach for special characters is pyautogui.write()
-    with the message parameter which handles Unicode strings properly,
-    combined with a per-character interval.
+    Clipboard paste is instant and 100% accurate for all Unicode/special chars.
+    We restore the original clipboard content afterward.
     """
     if line == "":
-        # Empty line — just press Enter (handled by caller)
-        return
+        return  # Empty line, caller handles Enter
 
-    # pyautogui.write() handles standard printable ASCII characters well.
-    # For maximum compatibility with special chars on Windows, we type
-    # the entire line as a string with an interval between each character.
-    pyautogui.write(line, interval=interval)
+    # Check if the whole line is safe ASCII
+    if all(c in SAFE_CHARS for c in line):
+        pyautogui.write(line, interval=CHAR_INTERVAL)
+    else:
+        # Save current clipboard, paste line, restore clipboard
+        try:
+            original_clipboard = pyperclip.paste()
+        except Exception:
+            original_clipboard = ""
+
+        pyperclip.copy(line)
+        time.sleep(0.05)  # Let clipboard settle
+        pyautogui.hotkey("ctrl", "v")
+        time.sleep(0.05)
+
+        # Restore clipboard
+        try:
+            pyperclip.copy(original_clipboard)
+        except Exception:
+            pass
 
 
-def auto_type(lines: list[str], interval: float, line_delay: float):
-    """
-    Main typing loop.
-    Iterates over each line, types it out character by character,
-    then presses Enter to move to the next line.
-    """
+def auto_type(lines: list[str], line_delay: float):
     total = len(lines)
 
     for index, line in enumerate(lines, start=1):
-        print(f"  Typing line {index}/{total}: {repr(line[:40])}{'...' if len(line) > 40 else ''}")
+        preview = repr(line[:50]) + ("..." if len(line) > 50 else "")
+        print(f"  Line {index}/{total}: {preview}")
 
-        # Type the current line content
-        type_line(line, interval)
+        type_line(line)
 
-        # Press Enter to go to the next line in the editor
         pyautogui.press("enter")
-
-        # Small pause after Enter to let the editor settle
-        # (prevents issues with auto-indent firing too slowly)
         time.sleep(line_delay)
 
-    print("\n[DONE] All lines have been typed successfully!")
+    print("\n[DONE] All lines typed successfully!")
 
 
 def main():
-    """
-    Entry point of the script.
-    Reads the file, runs the countdown, then begins typing.
-    """
     print("=" * 60)
-    print("  AUTO-TYPER — PyAutoGUI Code Typing Script")
+    print("  AUTO-TYPER — Special Character Safe Edition")
     print("=" * 60)
 
-    # Step 1: Read the source file into a list of lines
     lines = read_file(CODE_FILE)
-
-    # Step 2: Show countdown so user has time to focus the target text box
     countdown(STARTUP_DELAY)
 
-    # Step 3: Begin typing the code line by line
     try:
-        auto_type(lines, CHAR_INTERVAL, LINE_DELAY)
+        auto_type(lines, LINE_DELAY)
     except pyautogui.FailSafeException:
-        print("\n[ABORTED] Fail-safe triggered! Mouse moved to a screen corner.")
-        print("  Script stopped to prevent unintended input.")
+        print("\n[ABORTED] Fail-safe triggered (mouse hit screen corner).")
         sys.exit(0)
     except KeyboardInterrupt:
-        print("\n[ABORTED] Script interrupted by user (Ctrl+C).")
+        print("\n[ABORTED] Stopped by user (Ctrl+C).")
         sys.exit(0)
 
 
