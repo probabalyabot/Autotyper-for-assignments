@@ -69,7 +69,7 @@ pip install pyautogui
 **2.** Open `auto_typer.py` and set the `CODE_FILE` variable to your file's name:
 
 ```python
-CODE_FILE = "code.c"   # ← change this
+CODE_FILE = "code.c"   # ← change this everytime for different codes
 ```
 
 **3.** Run the script:
