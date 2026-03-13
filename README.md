@@ -50,7 +50,7 @@
 **1. Clone the repository:**
 
 ```bash
-git https://github.com/probabalyabot/Autotyper-for-assignments.git
+git clone https://github.com/probabalyabot/Autotyper-for-assignments.git
 cd auto-typer
 ```
 
