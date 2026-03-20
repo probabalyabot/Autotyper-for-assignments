@@ -4,7 +4,7 @@
 
 ---
 
-##  Table of Contents
+## 📋 Table of Contents
 
 - [About](#about)
 - [Features](#features)
@@ -26,15 +26,17 @@
 
 ## Features
 
--  Types code **line by line**, pressing `Enter` after each line
--  Preserves **exact indentation** from the source file
--  Automatically converts **tabs → 4 spaces** to prevent indentation issues
--  Handles **special characters** correctly (`{`, `}`, `<`, `>`, `#`, `[]`, etc.) via clipboard injection
--  Configurable **startup delay** to let you click the target text box
--  Configurable **typing speed** (characters per second)
--  Built-in **fail-safe**: move the mouse to any screen corner to abort instantly
--  Works on **Windows 10 / 11**
--  Supports any plain-text source file (`.py`, `.c`, `.cpp`, `.js`, `.java`, etc.)
+- ✅ Types code **line by line** with configurable line break behaviour
+- ✅ Handles **special characters** correctly (`{`, `}`, `<`, `>`, `#`, `*`, etc.) via explicit shift+key combos
+- ✅ **Auto-close bracket fix** — detects and removes editor-inserted closing `}` after every `{`
+- ✅ **Ctrl+C hotkey** to stop the script instantly at any time
+- ✅ Configurable **indent stripping** for editors that auto-indent (e.g. Moodle TinyMCE)
+- ✅ Configurable **tab handling** — preserve as-is or convert to spaces
+- ✅ Configurable **startup delay** to let you click the target text box
+- ✅ Configurable **typing speed**
+- ✅ Built-in **fail-safe**: move the mouse to any screen corner to abort instantly
+- ✅ Works on **Windows 10 / 11**
+- ✅ Supports any plain-text source file (`.py`, `.c`, `.cpp`, `.js`, `.java`, etc.)
 
 ---
 
@@ -42,7 +44,7 @@
 
 - Python **3.10+**
 - [`pyautogui`](https://pyautogui.readthedocs.io/en/latest/)
-- [`pyperclip`](https://pypi.org/project/pyperclip/)
+- [`keyboard`](https://pypi.org/project/keyboard/)
 
 ---
 
@@ -58,7 +60,7 @@ cd auto-typer
 **2. Install dependencies:**
 
 ```bash
-pip install pyautogui pyperclip
+pip install pyautogui keyboard
 ```
 
 ---
@@ -70,18 +72,19 @@ pip install pyautogui pyperclip
 **2.** Open `auto_typer.py` and set the `CODE_FILE` variable to your file's name:
 
 ```python
-CODE_FILE = "code.c"   # ← change this everytime for different codes
+CODE_FILE = "code.c"   # ← change this every time for different files
 ```
 
-**3.** Run the script:
+**3.** Run as Administrator (required by the `keyboard` library on Windows):
 
 ```bash
+# Right-click terminal → "Run as administrator", then:
 python auto_typer.py
 ```
 
-**4.** You'll see a **5-second countdown** in the terminal — use this time to click inside the target text box / editor.
+**4.** You'll see a **5-second countdown** in the terminal — use this time to click inside the target text box.
 
-**5.** The script will begin typing automatically. Don't touch the mouse or keyboard until it finishes!
+**5.** The script will begin typing automatically. Press **Ctrl+C** at any time to stop.
 
 ---
 
@@ -91,10 +94,15 @@ All settings are at the **top of `auto_typer.py`** for easy access:
 
 | Variable | Default | Description |
 |---|---|---|
-| `CODE_FILE` | `"code.py"` | Path to the source file to type |
+| `CODE_FILE` | `"code.c"` | Path to the source file to type |
 | `STARTUP_DELAY` | `5` | Seconds to wait before typing starts |
-| `CHAR_INTERVAL` | `0.03` | Delay between each character (only used for plain ASCII lines) |
-| `LINE_DELAY` | `0.08` | Pause after pressing `Enter` each line |
+| `CHAR_INTERVAL` | `0.03` | Delay between each character (in seconds) |
+| `LINE_DELAY` | `0.05` | Pause after each line break |
+| `USE_SHIFT_ENTER` | `True` | Use Shift+Enter instead of Enter to suppress Moodle auto-indent |
+| `CONVERT_TABS` | `False` | Convert tabs to spaces before typing |
+| `TAB_SIZE` | `4` | Spaces per tab (only used if `CONVERT_TABS = True`) |
+| `STRIP_INDENT` | `True` | Strip leading whitespace and let the editor handle indentation |
+| `AUTO_CLOSE_BRACKETS` | `True` | Press Delete after `{` to remove editor auto-inserted `}` |
 
 ### Typing Speed Guide
 
@@ -105,6 +113,14 @@ All settings are at the **top of `auto_typer.py`** for easy access:
 | `0.05` | Natural human pace |
 | `0.08` | Slow / deliberate |
 
+### Quick Config Reference
+
+| Target | Recommended Settings |
+|---|---|
+| Moodle (TinyMCE rich text) | `USE_SHIFT_ENTER=True`, `STRIP_INDENT=True`, `AUTO_CLOSE_BRACKETS=True` |
+| Plain textarea | `USE_SHIFT_ENTER=False`, `STRIP_INDENT=False`, `AUTO_CLOSE_BRACKETS=False` |
+| VS Code / code editor | `USE_SHIFT_ENTER=False`, `STRIP_INDENT=False`, `CONVERT_TABS=False` |
+
 ---
 
 ## How It Works
@@ -114,7 +130,7 @@ User runs script
       │
       ▼
  Reads source file
- (tabs → 4 spaces)
+ (optional: strip indent, convert tabs)
       │
       ▼
   Countdown timer
@@ -122,37 +138,41 @@ User runs script
       │
       ▼
  For each line:
-  ├─ Plain ASCII? → type character by character
-  ├─ Contains special chars? → copy to clipboard → Ctrl+V
-  └─ Press Enter
+  ├─ Normal char? → keyboard.write()
+  ├─ Special char ({, }, <, >, etc.)? → pyautogui.hotkey("shift", key)
+  ├─ Typed a {? → press Delete to remove auto-inserted }
+  └─ Press Shift+Enter (or Enter)
       │
       ▼
     Done ✅
 ```
 
-Lines containing only plain ASCII characters (letters, digits, basic punctuation) are typed character by character using `pyautogui.write()`. Lines containing special characters like `{`, `}`, `<`, `>`, `#`, `&`, `|` are injected via the clipboard (`pyperclip` + `Ctrl+V`) to ensure they are typed accurately regardless of keyboard layout. The original clipboard contents are restored after each paste.
+Special characters like `{`, `}`, `(`, `)`, `<`, `>`, `#`, `*` are typed using explicit `shift+key` hotkey combos mapped to the US keyboard layout, bypassing the unreliable character translation in `keyboard.write()` and `pyautogui.write()`. All other characters are typed via `keyboard.write()`.
 
 ---
 
 ## Tips & Troubleshooting
 
-** To stop the script immediately:**
-- Move your mouse to **any corner of the screen** (PyAutoGUI fail-safe), or
-- Press `Ctrl+C` in the terminal window
+**🛑 To stop the script immediately:**
+- Press **Ctrl+C** anywhere — the script stops cleanly at the end of the current line
+- Or move your mouse to **any corner of the screen** (PyAutoGUI fail-safe)
 
-** Characters being mistyped or skipped?**
+**⚠️ Getting extra `}` brackets?**
+- Enable `AUTO_CLOSE_BRACKETS = True` — the editor is auto-closing `{` and the script will delete the extra `}`
+
+**⚠️ Indentation is cascading / compounding?**
+- Enable `STRIP_INDENT = True` — lets the editor handle indentation entirely
+- Enable `USE_SHIFT_ENTER = True` — suppresses Moodle's paragraph-level auto-indent
+
+**⚠️ Characters being mistyped or skipped?**
 - Ensure the file is saved as **UTF-8**
-- Increase `CHAR_INTERVAL` slightly (e.g., `0.05`) for plain ASCII lines
+- Slightly increase `CHAR_INTERVAL` (e.g. `0.05`)
 
-** Auto-indent is causing double indentation?**
-- Increase `LINE_DELAY` slightly (e.g., `0.1`) to give the editor time to settle after `Enter`
-- Turn off auto-indent in the target editor if possible
+**⚠️ Script types in the wrong window?**
+- Increase `STARTUP_DELAY` to give yourself more time to click the correct field
 
-** Script types in the wrong window?**
-- Increase `STARTUP_DELAY` to give yourself more time to click the correct text field
-
-** Clipboard paste not working in the target text box?**
-- Some rich-text editors (e.g. TinyMCE in Moodle) may handle `Ctrl+V` differently — try switching the editor to plain-text mode first
+**⚠️ Permission error on startup?**
+- Run the terminal as Administrator — the `keyboard` library requires elevated permissions on Windows
 
 ---
 
@@ -162,4 +182,4 @@ This project is licensed under the [MIT License](LICENSE).
 
 ---
 
-<p align="center">Made with annoyance at moodle using Python & PyAutoGUI</p>
+<p align="center">Made with annoyance at Moodle using Python & PyAutoGUI</p>
