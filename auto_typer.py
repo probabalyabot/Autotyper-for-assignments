@@ -45,10 +45,13 @@ CONVERT_TABS = False
 TAB_SIZE     = 4
 
 # Set to True to strip leading whitespace from each line before typing.
-# Use this when the target editor (e.g. Moodle) auto-indents on its own
-# and compounds with your file's indentation, causing cascading indent issues.
-# Set to False to preserve your file's indentation exactly.
+# Use when the target editor auto-indents on its own.
 STRIP_INDENT = True
+
+# Set to True if the editor auto-closes brackets (e.g. types { and editor
+# inserts } automatically). The script will press Delete after each { to
+# remove the auto-inserted closing bracket.
+AUTO_CLOSE_BRACKETS = True
 
 # ─────────────────────────────────────────────────────────────────────
 pyautogui.FAILSAFE = True
@@ -91,8 +94,6 @@ def read_file(filepath: str) -> list[str]:
             lines.append(l)
 
     print(f"[INFO] Loaded '{filepath}' — {len(lines)} lines to type.")
-    print(f"[INFO] Tab mode    : {'converting tabs to ' + str(TAB_SIZE) + ' spaces' if CONVERT_TABS else 'preserving tabs as-is'}")
-    print(f"[INFO] Indent mode : {'stripping leading whitespace (editor handles indent)' if STRIP_INDENT else 'preserving original indentation'}")
     return lines
 
 
@@ -114,13 +115,18 @@ def press_newline():
 
 def type_char(char: str):
     """
-    Types a single character using the correct method:
-    - Special chars → pyautogui.hotkey('shift', key)
-    - Everything else → keyboard.write()
+    Types a single character using the correct method.
+    If AUTO_CLOSE_BRACKETS is True, pressing Delete after { removes
+    the editor's auto-inserted closing }.
     """
     if char in SHIFT_CHARS:
         pyautogui.hotkey("shift", SHIFT_CHARS[char])
         time.sleep(CHAR_INTERVAL)
+        # If editor auto-closes { with }, delete the unwanted auto-inserted }
+        if char == '{' and AUTO_CLOSE_BRACKETS:
+            time.sleep(0.05)
+            pyautogui.press("delete")
+            time.sleep(0.05)
     else:
         keyboard.write(char, delay=CHAR_INTERVAL)
 
@@ -156,10 +162,11 @@ def main():
     print("=" * 60)
     print("  AUTO-TYPER — Windows / Moodle Edition")
     print("=" * 60)
-    print(f"  Newline mode : {'Shift+Enter (rich text)' if USE_SHIFT_ENTER else 'Enter (plain textarea)'}")
-    print(f"  Tab mode     : {'Convert to ' + str(TAB_SIZE) + ' spaces' if CONVERT_TABS else 'Preserve as-is'}")
-    print(f"  Indent mode  : {'Strip leading whitespace' if STRIP_INDENT else 'Preserve indentation'}")
-    print(f"  Stop anytime : Ctrl+C")
+    print(f"  Newline mode    : {'Shift+Enter (rich text)' if USE_SHIFT_ENTER else 'Enter (plain textarea)'}")
+    print(f"  Tab mode        : {'Convert to ' + str(TAB_SIZE) + ' spaces' if CONVERT_TABS else 'Preserve as-is'}")
+    print(f"  Indent mode     : {'Strip leading whitespace' if STRIP_INDENT else 'Preserve indentation'}")
+    print(f"  Auto-close fix  : {'On (deletes auto-inserted })' if AUTO_CLOSE_BRACKETS else 'Off'}")
+    print(f"  Stop anytime    : Ctrl+C")
     print("=" * 60)
 
     lines = read_file(CODE_FILE)
