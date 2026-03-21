@@ -1,4 +1,4 @@
-# 🤖 Auto-Typer — PyAutoGUI Code Typing Script
+# Auto-Typer — PyAutoGUI Code Typing Script
 
 > Simulates human typing of code into any text field — even when **copy-paste is disabled**.
 
